@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+setup.cfg
+setup.py
+surfing_project/__init__.py
+surfing_project/assets.py
+surfing_project/definitions.py
+surfing_project/resources.py
+surfing_project.egg-info/PKG-INFO
+surfing_project.egg-info/SOURCES.txt
+surfing_project.egg-info/dependency_links.txt
+surfing_project.egg-info/requires.txt
+surfing_project.egg-info/top_level.txt

@@ -1,0 +1,3 @@
+pip install -I -e ".[dev]"
+pip install -U -e ".[dev]"
+

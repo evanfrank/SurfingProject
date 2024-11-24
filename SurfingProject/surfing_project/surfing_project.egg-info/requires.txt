@@ -6,6 +6,8 @@ matplotlib
 lxml
 psycopg2
 folium
+selenium
+pillow
 
 [dev]
 dagster-webserver

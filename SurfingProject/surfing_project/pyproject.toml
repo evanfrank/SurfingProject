@@ -13,7 +13,8 @@ dependencies = [
     "lxml",
     "psycopg2",
     "folium",
-    "markdownify"
+    "selenium",
+    "pillow"
 ]
 
 [project.optional-dependencies]

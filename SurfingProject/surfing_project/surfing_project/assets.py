@@ -1,5 +1,9 @@
 import pandas as pd
 import folium
+from io import BytesIO
+import io
+import base64
+from PIL import Image
 
 from dagster import (  # AssetExecutionContext,
                      MetadataValue,
@@ -98,10 +102,18 @@ def bouy_names(localDB: postgres_con) -> MaterializeResult:
             popup=row['name']
         ).add_to(m)
 
+    buffer = BytesIO()
+    img = m._to_png(5)
+    img = Image.open(io.BytesIO(img))
+    img.save(buffer, format="PNG")
+    image_data = base64.b64encode(buffer.getvalue())
+
+    # Convert the image to Markdown to preview it within Dagster
+    md_content = f"![img](data:image/png;base64,{image_data.decode()})"
     return MaterializeResult(
         metadata={
             "num_records": len(bouy_meta),
             "preview": MetadataValue.md(bouy_meta.head().to_markdown()),
-            "map": m._repr_html_()
+            "map": MetadataValue.md(md_content)
         }
     )

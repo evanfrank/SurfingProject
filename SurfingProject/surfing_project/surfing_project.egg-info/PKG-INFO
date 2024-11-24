@@ -13,6 +13,8 @@ Requires-Dist: matplotlib
 Requires-Dist: lxml
 Requires-Dist: psycopg2
 Requires-Dist: folium
+Requires-Dist: selenium
+Requires-Dist: pillow
 Provides-Extra: dev
 Requires-Dist: dagster-webserver; extra == "dev"
 Requires-Dist: pytest; extra == "dev"

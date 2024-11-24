@@ -13,7 +13,8 @@ setup(
         "lxml",
         "psycopg2",
         "folium",
-        "markdownify"
+        "selenium",
+        "pillow"
     ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )

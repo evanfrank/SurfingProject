@@ -11,7 +11,9 @@ dependencies = [
     "requests",
     "matplotlib",
     "lxml",
-    "psycopg2"
+    "psycopg2",
+    "folium",
+    "markdownify"
 ]
 
 [project.optional-dependencies]

@@ -11,7 +11,9 @@ setup(
         "requests",
         "matplotlib",
         "lxml",
-        "psycopg2"
+        "psycopg2",
+        "folium",
+        "markdownify"
     ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )

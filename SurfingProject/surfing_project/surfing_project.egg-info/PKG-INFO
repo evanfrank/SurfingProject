@@ -12,6 +12,7 @@ Requires-Dist: requests
 Requires-Dist: matplotlib
 Requires-Dist: lxml
 Requires-Dist: psycopg2
+Requires-Dist: folium
 Provides-Extra: dev
 Requires-Dist: dagster-webserver; extra == "dev"
 Requires-Dist: pytest; extra == "dev"

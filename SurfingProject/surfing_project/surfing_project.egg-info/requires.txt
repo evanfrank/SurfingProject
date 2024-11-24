@@ -5,6 +5,7 @@ requests
 matplotlib
 lxml
 psycopg2
+folium
 
 [dev]
 dagster-webserver

@@ -1,4 +1,5 @@
 import pandas as pd
+import folium
 
 from dagster import (  # AssetExecutionContext,
                      MetadataValue,
@@ -69,5 +70,38 @@ def bouy_data(localDB: postgres_con) -> MaterializeResult:
         metadata={
             "num_records": len(wave_data),
             "preview": MetadataValue.md(wave_data.head().to_markdown()),
+        }
+    )
+
+
+@asset
+def bouy_names(localDB: postgres_con) -> MaterializeResult:
+    # engine = localDB.make_con()
+
+    bouy_meta = pd.read_xml("https://www.ndbc.noaa.gov/activestations.xml")
+
+    bouy_meta = bouy_meta[bouy_meta["lon"].between(-84, -55)
+                          & bouy_meta["lat"].between(23, 47)]
+
+    # bouy_meta.to_sql("BouyMeta",
+    #                 con=engine,
+    #                 if_exists='replace',
+    #                 index='False')
+
+    m = folium.Map(location=[bouy_meta['lat'].iloc[0],
+                             bouy_meta['lon'].iloc[0]], zoom_start=5)
+
+    # Add markers for each location
+    for index, row in bouy_meta.iterrows():
+        folium.Marker(
+            location=[row['lat'], row['lon']],
+            popup=row['name']
+        ).add_to(m)
+
+    return MaterializeResult(
+        metadata={
+            "num_records": len(bouy_meta),
+            "preview": MetadataValue.md(bouy_meta.head().to_markdown()),
+            "map": m._repr_html_()
         }
     )

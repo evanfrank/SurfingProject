@@ -110,6 +110,21 @@ def east_coast_bouy_names(localDB: postgres_con) -> MaterializeResult:
     )
 
 
+def with_date_time(df):
+    df['Timestamp'] = df['#YY : #yr'].astype(str) \
+        + '-' + df['MM : mo'].astype(str)
+    df['Timestamp'] = df['Timestamp'].astype(str) \
+        + '-' + df['DD : dy'].astype(str)
+    df['Timestamp'] = df['Timestamp'].astype(str) \
+        + ' ' + df['hh : hr'].astype(str)
+    df['Timestamp'] = df['Timestamp'].astype(str) \
+        + ':' + df['mm : mn'].astype(str)
+
+    df["Timestamp"] = pd.to_datetime(df['Timestamp'])
+
+    return df
+
+
 @asset(deps=[real_time_swell_list, east_coast_bouy_names])
 def real_time_bouy_data(localDB: postgres_con) -> MaterializeResult:
     engine = localDB.make_con()
@@ -141,8 +156,9 @@ def real_time_bouy_data(localDB: postgres_con) -> MaterializeResult:
         data["FileName"] = file_name
         data["Last modified"] = file["Last modified"]
         data["Last modified"] = file["ID"]
-
         wave_data = pd.concat([data, wave_data])
+
+    wave_data = with_date_time(wave_data)
 
     wave_data.to_sql("BouyDataCurrent",
                      con=engine,
@@ -170,5 +186,5 @@ def store_new_data(localDB: postgres_con) -> MaterializeResult:
     bouy_hist
 
     bouy_hist_ids = bouy_hist['id'].values
-    bouy_hist_stamp = bouy_hist[]
-    """
+    bouy_hist_stamp = bouy_hist['Y']
+"""

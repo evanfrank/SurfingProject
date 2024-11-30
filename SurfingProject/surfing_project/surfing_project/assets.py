@@ -163,7 +163,7 @@ def real_time_bouy_data(localDB: postgres_con) -> MaterializeResult:
     wave_data.to_sql("BouyDataCurrent",
                      con=engine,
                      if_exists='replace',
-                     index='False')
+                     index=False)
 
     # Print the DataFrame to the Metadata
     return MaterializeResult(
@@ -174,17 +174,28 @@ def real_time_bouy_data(localDB: postgres_con) -> MaterializeResult:
     )
 
 
-"""
 @asset(deps=[real_time_bouy_data])
 def store_new_data(localDB: postgres_con) -> MaterializeResult:
     engine = localDB.make_con()
     sql = "SELECT * FROM public.\"BouyDataCurrent\";"
     bouy_current = pd.read_sql(sql, con=engine)
 
-    sql = "SELECT * FROM public.\"BouyData\";"
+    sql = "SELECT * FROM public.\"BouyDataCurrent\" \
+           WHERE \"Timestamp\">= Current_Date -2;"
     bouy_hist = pd.read_sql(sql, con=engine)
-    bouy_hist
+    bouy_set = pd.concat([bouy_hist, bouy_current])
+    bouy_set.drop_duplicates(inplace=True)
 
-    bouy_hist_ids = bouy_hist['id'].values
-    bouy_hist_stamp = bouy_hist['Y']
-"""
+    bouy_set.to_sql("Bouy_Data")
+    bouy_set.to_sql("BouyDataCurrent",
+                    con=engine,
+                    if_exists='replace',
+                    index=False)
+
+    # Print the DataFrame to the Metadata
+    return MaterializeResult(
+        metadata={
+            "num_records": len(bouy_set),
+            "preview": MetadataValue.md(bouy_set.head().to_markdown()),
+        }
+    )

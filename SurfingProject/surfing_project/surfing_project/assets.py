@@ -180,16 +180,21 @@ def store_new_data(localDB: postgres_con) -> MaterializeResult:
     sql = "SELECT * FROM public.\"BouyDataCurrent\";"
     bouy_current = pd.read_sql(sql, con=engine)
 
-    sql = "SELECT * FROM public.\"BouyDataCurrent\" \
-           WHERE \"Timestamp\">= Current_Date -2;"
+    sql = "SELECT * FROM public.\"BouyData\" \
+           WHERE \"Timestamp\">= NOW() - INTERVAL '48 Hours';"
     bouy_hist = pd.read_sql(sql, con=engine)
-    bouy_set = pd.concat([bouy_hist, bouy_current])
-    bouy_set.drop_duplicates(inplace=True)
+    bouy_set = pd.merge(bouy_current,
+                        bouy_hist,
+                        how='left',
+                        suffixes=('', '_duplicate'),
+                        on=['Timestamp', 'FileName'])
+    bouy_set = bouy_set[bouy_set['#YY : #yr_duplicate'].isna()]
 
-    bouy_set.to_sql("Bouy_Data")
-    bouy_set.to_sql("BouyDataCurrent",
+    bouy_set = bouy_set.filter(regex="^(?!.*_duplicate$)")
+
+    bouy_set.to_sql("Bouy_Data",
                     con=engine,
-                    if_exists='replace',
+                    if_exists='append',
                     index=False)
 
     # Print the DataFrame to the Metadata

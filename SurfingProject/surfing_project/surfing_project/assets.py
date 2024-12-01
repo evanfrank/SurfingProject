@@ -47,16 +47,25 @@ def bouy_names(localDB: postgres_con) -> MaterializeResult:
 
     bouy_meta = pd.read_xml("https://www.ndbc.noaa.gov/activestations.xml")
 
-    sql = "SELECT * FROM public.\"BouyMeta\";"
-    bouy_loaded = pd.read_sql(sql, con=engine)
+    sql = 'SELECT table_name FROM information_schema.tables \
+           WHERE table_schema=\'public\' AND table_type=\'BASE TABLE\';'
+    tables = pd.read_sql(sql, con=engine)
 
-    existing_bouys = bouy_loaded['id'].values
-    bouy_meta = bouy_meta[~bouy_meta['id'].isin(existing_bouys)]
+    if tables.isin(["BouyMeta"]).any().any():
+        sql = "SELECT * FROM public.\"BouyMeta\";"
+        bouy_loaded = pd.read_sql(sql, con=engine)
+        existing_bouys = bouy_loaded['id'].values
+        bouy_meta = bouy_meta[~bouy_meta['id'].isin(existing_bouys)]
 
-    bouy_meta.to_sql("BouyMeta",
-                     con=engine,
-                     if_exists='append',
-                     index=False)
+        bouy_meta.to_sql("BouyMeta",
+                         con=engine,
+                         if_exists='append',
+                         index=False)
+    else:
+        bouy_meta.to_sql("BouyMeta",
+                         con=engine,
+                         if_exists='append',
+                         index=False)
 
     return MaterializeResult(
         metadata={
@@ -71,11 +80,17 @@ def east_coast_bouy_names(localDB: postgres_con) -> MaterializeResult:
     engine = localDB.make_con()
 
     sql = "SELECT * FROM public.\"BouyMeta\";"
+    bouy_meta = pd.read_sql(sql, con=engine)
 
-    bouy_meta = pd.read_sql(sql,
-                            con=engine)
+    # Bouys in the East
     bouy_meta = bouy_meta[bouy_meta["lon"].between(-84, -55)
                           & bouy_meta["lat"].between(23, 47)]
+    # But not the great lakes
+    bouy_meta_GL = bouy_meta[bouy_meta["lon"].between(-84, -72)
+                             & bouy_meta["lat"].between(41.2, 48)]
+
+    bouy_meta = pd.concat([bouy_meta, bouy_meta_GL])
+    bouy_meta = bouy_meta.drop_duplicates(keep=False)
 
     bouy_meta.to_sql("BouyMetaNorthEast",
                      con=engine,
@@ -122,6 +137,13 @@ def with_date_time(df):
 
     df["Timestamp"] = pd.to_datetime(df['Timestamp'])
 
+    df.drop(columns=['#YY : #yr',
+                     'MM : mo',
+                     'DD : dy',
+                     'hh : hr',
+                     'mm : mn'],
+            inplace=True)
+
     return df
 
 
@@ -133,7 +155,6 @@ def real_time_bouy_data(localDB: postgres_con) -> MaterializeResult:
     files = pd.read_sql(sql, con=engine)
 
     sql = "SELECT * FROM public.\"BouyMetaNorthEast\";"
-
     bouy_meta = pd.read_sql(sql, con=engine)
 
     bouy_list = bouy_meta['id'].values
@@ -146,16 +167,12 @@ def real_time_bouy_data(localDB: postgres_con) -> MaterializeResult:
     url = "https://www.ndbc.noaa.gov/data/realtime2/"
 
     for file_name in wave_files_i:
-        file = wave_files[wave_files["Name"] == file_name]
         data_url = rf"{url}{file_name}"
         print(data_url)
         data = pd.read_csv(data_url, sep=r'\s+', header=[0, 1])
 
         data.columns = data.columns.map(' : '.join)
-
         data["FileName"] = file_name
-        data["Last modified"] = file["Last modified"]
-        data["Last modified"] = file["ID"]
         wave_data = pd.concat([data, wave_data])
 
     wave_data = with_date_time(wave_data)
@@ -177,25 +194,31 @@ def real_time_bouy_data(localDB: postgres_con) -> MaterializeResult:
 @asset(deps=[real_time_bouy_data])
 def store_new_data(localDB: postgres_con) -> MaterializeResult:
     engine = localDB.make_con()
+
+    sql = 'SELECT table_name FROM information_schema.tables \
+           WHERE table_schema=\'public\' AND table_type=\'BASE TABLE\';'
+    tables = pd.read_sql(sql, con=engine)
+
     sql = "SELECT * FROM public.\"BouyDataCurrent\";"
     bouy_current = pd.read_sql(sql, con=engine)
 
-    sql = "SELECT * FROM public.\"BouyData\" \
-           WHERE \"Timestamp\">= NOW() - INTERVAL '48 Hours';"
-    bouy_hist = pd.read_sql(sql, con=engine)
-    bouy_set = pd.merge(bouy_current,
-                        bouy_hist,
-                        how='left',
-                        suffixes=('', '_duplicate'),
-                        on=['Timestamp', 'FileName'])
-    bouy_set = bouy_set[bouy_set['#YY : #yr_duplicate'].isna()]
+    if tables.isin(["BouyData"]).any().any():
+        sql = "SELECT * FROM public.\"BouyData\" \
+               WHERE \"Timestamp\">= NOW() - INTERVAL '90 Days';"
+        bouy_hist = pd.read_sql(sql, con=engine)
+        bouy_set = pd.concat([bouy_hist, bouy_current])
+        bouy_set = bouy_set.drop_duplicates(keep=False)
+        bouy_set.to_sql("BouyData",
+                        con=engine,
+                        if_exists='append',
+                        index=False)
 
-    bouy_set = bouy_set.filter(regex="^(?!.*_duplicate$)")
-
-    bouy_set.to_sql("Bouy_Data",
-                    con=engine,
-                    if_exists='append',
-                    index=False)
+    else:
+        bouy_set = bouy_current
+        bouy_set.to_sql("BouyData",
+                        con=engine,
+                        if_exists='append',
+                        index=False)
 
     # Print the DataFrame to the Metadata
     return MaterializeResult(
